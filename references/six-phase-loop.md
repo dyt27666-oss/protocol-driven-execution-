@@ -1,112 +1,131 @@
-# 6 阶段循环详解
+# 7-stage 循环详解
 
-> 每个 step 必经的 6 个阶段，缺一不可。
+> 每个 step 必经的 Stage 0-6（共 7 stage），缺一不可。
+> （文件名保留历史 six-phase-loop.md，内容已升级到 7 stage 含 Stage 0 contract。）
 
 ## 流程图
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│  阶段 1: 实施                                       │
-│  - 写代码 / 改 schema / 写文档                      │
-│  - TaskUpdate status=in_progress                    │
+│  Stage 0: contract（scope / DoD / 回滚 / 决策点）   │
+│  - 5 项必填: scope / non-goals / acceptance /       │
+│             affected artifacts / rollback           │
+│  - 写入 TaskList description 或 markdown            │
+│  ✗ contract 不冻结不能进 Stage 1                    │
 └──────────────────┬──────────────────────────────────┘
                    ↓
 ┌─────────────────────────────────────────────────────┐
-│  阶段 2: self-test                                  │
-│  - 跑模块级测试                                     │
-│  - 必须 PASS                                        │
-│  ✗ FAIL → 退回阶段 1                                │
+│  Stage 1: 实施                                      │
+│  - 严格按 contract.scope / affected_artifacts 执行  │
+│  - TaskUpdate status=in_progress                    │
+│  ✗ 需修改 scope → 回 Stage 0 重新冻结              │
+└──────────────────┬──────────────────────────────────┘
+                   ↓
+┌─────────────────────────────────────────────────────┐
+│  Stage 2: domain validation                         │
+│  - 按任务类型选验证形态（见下表）                   │
+│  - 必须有可验证产物（PASS / FAIL 信号）             │
+│  ✗ FAIL → 退回 Stage 1                              │
 └──────────────────┬──────────────────────────────────┘
                    ↓ PASS
 ┌─────────────────────────────────────────────────────┐
-│  阶段 3: 独立 review                                │
-│  - 派 Codex / subagent / Task                       │
+│  Stage 3: 独立 review                               │
+│  - 派外部进程 / subagent / Task                     │
 │  - 不论结论跑完                                     │
 │  - 输出 issue 列表                                  │
 └──────────────────┬──────────────────────────────────┘
                    ↓
 ┌─────────────────────────────────────────────────────┐
-│  阶段 4: 协商                                       │
-│  - 分类: P0 必修 / P1 排版 / P2 记录 / 无效          │
+│  Stage 4: 协商                                      │
+│  - 分类: P0 / P1-decision / P1-defaultable /        │
+│         P1-low-impact / P2 / 无效                   │
 │  - P0 直接修                                        │
-│  - P1 批量 chips 给用户                             │
-│  - P2 写 issue log                                  │
-│  - 无效给反驳理由                                   │
+│  - P1-decision 批量 chips 给用户                    │
+│  - P1-defaultable 按先例 / 推荐推进 + 标注         │
+│  - P1-low-impact / P2 写 issue log                  │
+│  - 无效给 verify 证据 + 反驳理由                    │
 └──────────────────┬──────────────────────────────────┘
                    ↓
 ┌─────────────────────────────────────────────────────┐
-│  阶段 5: 修复                                       │
+│  Stage 5: 修复                                      │
 │  - 按协商结论改                                     │
-│  - 再跑 self-test 必须 PASS                          │
-│  - 如修复 ≥ 5 处 P0 → 再跑一轮 review               │
+│  - Stage 2 validation 必须再 PASS                   │
+│  - 按风险决定复审强度（见下表）                     │
 └──────────────────┬──────────────────────────────────┘
                    ↓
 ┌─────────────────────────────────────────────────────┐
-│  阶段 6: commit                                     │
-│  - commit message 标 review 来源                    │
-│  - push 约定 remote                                 │
+│  Stage 6: checkpoint                                │
+│  - 按项目政策选形态: commit / PR / patch /          │
+│                     doc savepoint / no VCS          │
+│  - 必含: review 来源 + 修复来源 + 回滚锚点          │
 │  - TaskUpdate status=completed                      │
 └─────────────────────────────────────────────────────┘
 ```
 
-## 每阶段输出标准
+---
 
-### 阶段 1：实施
+## Stage 0 输出标准
 
-- 文件级 deliverable 清单
-- 不修改 deliverable 范围（如需要修改先回阶段 0 改 step 定义）
+见 `stage-0-contract.md`。
 
-### 阶段 2：self-test
+---
 
-- 必须有覆盖关键路径的 self-test 函数 / 测试用例
-- 输出 PASS 信号（如 `print("self-test PASS")` 或 `pytest -q` 0 exit）
-- happy path + 至少 1 个反例
+## Stage 2 domain validation 矩阵
 
-### 阶段 3：独立 review
+按任务类型选验证形态：
 
-- review 报告（issue 列表）
-- 每条 issue 含：描述、位置、严重程度建议、修复方向
-- 不在阶段 3 直接采纳——只收集
+| 任务类型 | Stage 2 形态 | PASS 信号 |
+|---------|-------------|-----------|
+| 代码实施 | 单元测试 / self-test 函数 / 类型检查 | `pytest -q` 0 exit / "self-test PASS" |
+| 文档 / 报告 | outline 一致性 + 引用源校验 + 结构 checklist | checklist 全勾 + 引用 grep 命中 |
+| 研究 / 调研 | source/evidence audit | 每条声明有可追溯来源 |
+| 设计文档 | constraint traceability | 每条结论可反查需求 ID |
+| schema 设计 | jsonschema validate + 反例 case | validate 通过 + 反例 reject |
+| 策略制定 | 决策回溯 | 每个选择有 trade-off 文档 |
 
-### 阶段 4：协商
+**通用要求**：必须有可验证产物（PASS / FAIL 信号），不接受"我自己检查过没问题"。
 
-```
-P0（必修）：
-  - issue-1: <描述>
-  - issue-2: <描述>
-P1（用户排版）→ 批量 chips
-  - issue-3: <描述> → 选项 A / B / C
-  - issue-4: <描述> → 选项 A / B
-P2（记录）：
-  - issue-5: <描述> → 写入 issue log
-无效：
-  - issue-6: <描述> → 反驳理由：<verify 过 X 一致>
-```
+---
 
-### 阶段 5：修复
+## Stage 5 复审强度（按风险）
 
-- 按协商结论改
-- self-test 再次 PASS
-- 修复触及核心逻辑（≥ 5 处 P0）→ 阶段 3 再跑一轮
+| 修复触及范围 | 复审强度 |
+|------------|---------|
+| 仅本地 / 单函数内部 | targeted re-review |
+| 公共接口 / schema / 数据格式 | full re-review |
+| 安全 / 认证 / 权限 | full re-review |
+| 状态机 / 迁移 / 持久化 | full re-review |
+| 仅 P1-low-impact / P2 修复 | 可跳过复审 |
 
-### 阶段 6：commit
+**默认**：不确定时跑 full re-review。
 
-commit message 标准模板：
+---
 
-```
-<type>(<scope>): <subject>
+## Stage 6 checkpoint 形态
 
-- P0 修复 a 处: <要点>
-- P1 按用户排版方案修复 b 处: <方案 ID>
-- P2 / 无效记录在 issue log
+见 `checkpoint-strategies.md`。
 
-Review: <reviewer 来源>
-```
+---
+
+## 每 stage 输出标准（汇总）
+
+| Stage | 输出 | 通过条件 |
+|-------|------|---------|
+| 0 contract | 5 项 + 可选预报 | 5 项必填齐全 |
+| 1 实施 | 符合 contract 的产物 | scope 内 + 不超 non-goals |
+| 2 validation | PASS / FAIL 信号 | 必须 PASS |
+| 3 review | issue 列表 | 跑完即可（不论结论） |
+| 4 协商 | 分类表 + 反驳证据 | P0 全标 / P1 分层 / 无效有证据 |
+| 5 修复 | 修复 diff + 复审结果 | validation 再 PASS + 复审通过 |
+| 6 checkpoint | 持久化产物 | 含 review 来源 + 修复来源 + 回滚锚点 |
+
+---
 
 ## 反例：不要这样做
 
-- ❌ 跳过 self-test 直接 review
-- ❌ review 全部采纳（包括明显误判）
-- ❌ P0 不修就 commit
-- ❌ commit message 只写 "fix issues"
-- ❌ 修复后不跑 self-test 直接 commit
+- ❌ 跳过 Stage 0 直接实施
+- ❌ Stage 2 验证用"我自己看过"代替可验证产物
+- ❌ Stage 3 review 全部采纳（包括明显误判）
+- ❌ 带 P0 进 Stage 6
+- ❌ Stage 6 不标 review 来源
+- ❌ Stage 5 修复后不跑 Stage 2 直接进 Stage 6

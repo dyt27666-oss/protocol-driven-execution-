@@ -36,42 +36,55 @@
 - 如果没找到问题：说明你检查了哪些假设、攻击了哪些路径
 ```
 
-## 协商分类标准
+## 协商分类标准（P1 三层）
 
-| 级别 | 标准 | 处理 |
-|------|------|------|
-| **P0** | 数据正确性 / 安全边界 / 协议违反 / 接口不兼容 | 必修，不修不 commit |
-| **P1** | 行为差异但都自洽 / 性能 trade-off / 接口设计偏好 | chips 让用户排版 |
-| **P2** | 注释 / 命名 / 不影响功能 | 写 issue log，下 step 再说 |
-| **无效** | reviewer 误判 | 给反驳理由（必须 verify 过），不修 |
+| 级别 | 标准（按"破坏什么"判定） | 处理 |
+|------|----------------------------|------|
+| **P0** | 破坏既有调用 / 数据正确性 / 安全承诺 / 协议本身 / 接口兼容 | 必修，不修不进 Stage 6 |
+| **P1-decision** | 不可逆 / 跨多系统影响 / schema / 安全 / 成本承诺 | chips 必问用户 |
+| **P1-defaultable** | 可逆 / 局部 / 已有先例 / 有明显推荐方向 | 按先例 / 推荐推进 + 标注 |
+| **P1-low-impact** | 仅命名 / 局部行为 / 不阻塞 step | 写 issue log，下次再说 |
+| **P2** | 纯可读性 / 注释 / 命名 | 写 issue log |
+| **无效** | reviewer 误判 | 必须给 verify 证据 + 反驳理由 |
+
+详见 `decision-points-checklist.md` 的 6 维度判定表。
 
 ## 协商流程
 
 ### 第一步：分类（AI 主动）
 
-读完 review 报告后，按上述标准给每条 issue 打标签。
+读完 review 报告后，按上表给每条 issue 打标签。**不确定时默认上升一级**（保守）。
 
 ### 第二步：P0 直接修
 
-不需要用户排版。修完跑 self-test。
+不需要用户排版。修完跑 Stage 2 validation。
 
-### 第三步：P1 批量 chips
+### 第三步：P1-decision 批量 chips
 
-把所有 P1 一起 chips：
+把所有 P1-decision 一起 chips（每个含"按推荐推进（不问我）"选项让用户降级）：
 
 ```
-question: "review 出 N 个 P1，请逐一排版"
+question: "review 出 N 个 P1-decision，请逐一排版"
 
-P1-1: <描述> → 选项 A / B / C
-P1-2: <描述> → 选项 A / B
-...
+P1-decision-1: <描述>
+  - 选项 A (Recommended) / B / 按推荐推进（不问我）
+P1-decision-2: <描述>
+  - 选项 A (Recommended) / B / 按推荐推进（不问我）
 ```
 
-### 第四步：P2 记录
+### 第四步：P1-defaultable 推进 + 标注
+
+按 reviewer 推荐 / 项目先例推进。commit / PR 中标注：
+
+```
+P1-defaultable 处理: <方案> (用户授权 AI 自主选择)
+```
+
+### 第五步：P1-low-impact / P2 记录
 
 写入 issue log（如 `docs/issues/` 或项目 markdown 文档）。
 
-### 第五步：无效项反驳
+### 第六步：无效项反驳
 
 不能简单标"无效"，必须给 verify 证据：
 
@@ -81,12 +94,20 @@ P1-2: <描述> → 选项 A / B
 
 ## 修复后是否需要二轮 review
 
-| 修复规模 | 需要二轮？ |
+**按风险，不按数量**。任何 P0 修复都至少需要 targeted re-review（针对被改动的代码路径）。
+
+| 修复触及范围 | 需要复审强度 |
 |---------|-----------|
-| < 5 处 P0 | 否，commit |
-| ≥ 5 处 P0 | 是，再跑一轮 review 确认 |
-| 触及核心架构（如 schema / 状态机） | 是，无论多少处 |
-| 仅 P2 修复 | 否 |
+| 仅本地 / 单函数内部逻辑 | targeted re-review（review 限定到 diff） |
+| 公共接口 / schema 字段 / 数据格式 | full re-review（重跑完整 review） |
+| 安全边界 / 认证 / 权限路径 | full re-review |
+| 状态机 / 迁移 / 持久化 | full re-review |
+| 仅 P1 / P2 修复且无副作用 | 可跳过复审 commit |
+
+**判定原则**：
+- 复审决策的输入是"修复改了什么"，不是"修复了几条 P0"
+- 一处接口破坏的 P0 修复 > 五处局部 P0 修复在风险上
+- 当不确定时，**默认 full re-review**——commit 前多跑一轮的成本远低于回退
 
 ## commit message 标准
 
