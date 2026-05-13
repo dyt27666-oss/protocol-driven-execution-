@@ -1,6 +1,6 @@
 <div align="center">
 
-<h1>🧭 step-to-step-chips</h1>
+<h1>🧭 protocol-driven-execution </h1>
 
 <p><strong>长周期任务协议化推进框架 · 让 Claude 自驱动 7 阶段循环，你只在架构决策点排版</strong></p>
 
