@@ -7,10 +7,10 @@
 
 The original protocol used Claude Code `AskUserQuestion` as the chips surface. Codex may run in several surfaces:
 
-- a mode where native `request_user_input` is available;
-- an OMX-attached tmux session where `omx question` can render structured prompts;
-- a plain Codex CLI session where neither structured UI is exposed;
-- a non-interactive execution mode.
+- Codex CLI, Codex App, or VS Code Codex Extension where native `request_user_input` is available;
+- Codex CLI with an OMX-attached tmux session where `omx question` can render structured prompts;
+- Codex CLI / App / VS Code where native structured input is unavailable in the current session;
+- non-interactive execution mode such as `codex exec` / CI-style runs.
 
 The protocol must not silently degrade P1-decision checkpoints into AI-only decisions. Every chips decision must produce a structured answer and a durable decision log.
 
@@ -42,22 +42,24 @@ The decision log must include:
 
 Use the first available backend:
 
-1. **Codex native structured input**
-   - Use the `request_user_input` tool when the current Codex mode exposes it.
-   - This is the preferred backend because it maps closest to real terminal/UI chips.
+1. **Codex native `request_user_input`**
+   - Preferred for Codex CLI / Codex App / VS Code Codex Extension.
+   - Requires `default_mode_request_user_input` enabled and a restarted session.
 
-2. **OMX structured question**
-   - If `omx` exists and the session has an attached tmux renderer, call `omx question`.
-   - Use `OMX_QUESTION_RETURN_PANE=$TMUX_PANE omx question ...` when a return pane is known.
+2. **CLI-only OMX structured question**
+   - Use only in Codex CLI when `omx` and an attached tmux renderer are available.
 
-3. **Local CLI fallback**
-   - Use `scripts/codex_chips.py ask --spec <json>` for a numbered terminal prompt.
-   - Use `scripts/codex_chips.py record --spec <json> --answers <json>` when the assistant had to ask the user in plain text and then records the answer.
+3. **CLI/local terminal fallback**
+   - Use `scripts/codex_chips.py ask --spec <json>` only when a local terminal prompt can be displayed.
 
-4. **Emergency plain text fallback**
-   - Ask exactly one concise plain-text question with numbered options.
-   - After the user answers, immediately record it through `scripts/codex_chips.py record`.
-   - Mark the log entry with `backend: plain_text_emergency`.
+4. **App / VS Code textual fallback**
+   - Render numbered options in the conversation body.
+   - Parse the user’s explicit reply.
+   - Record the answer to `.chips/decisions.jsonl`.
+
+5. **Non-interactive stop**
+   - In non-interactive execution mode, do not auto-select P1-decision choices.
+   - Emit a `decision_required` record and stop.
 
 ## Hard rules
 
@@ -122,9 +124,15 @@ The default log path is `.chips/decisions.jsonl` under the current working direc
 After enabling the feature and restarting Codex, ask the agent to run a protocol decision point. Expected behavior:
 
 1. The agent calls native `request_user_input` for the chips payload.
-2. Codex TUI renders the options near the input area.
+2. The current Codex client renders structured options:
+   - Codex CLI: options appear in the terminal/TUI input area;
+   - Codex App: options appear in the app conversation/input area;
+   - VS Code Extension: options appear in the extension conversation/input area.
 3. The selected answer returns as structured data.
-4. The checkpoint summary records `backend: request_user_input`.
+4. The checkpoint summary records:
+   - `backend: request_user_input`
+   - `client_surface: cli | app | vscode`
+   - `source: explicit_user_choice`.
 
 If the tool is still unavailable after restart, run:
 

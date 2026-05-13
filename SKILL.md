@@ -11,7 +11,16 @@ user-invocable: true
 
 ## 适用范围（重要）
 
-**适用平台**：Claude Code agentic workflow（依赖 `TaskCreate` / `AskUserQuestion` / `/loop` / `Skill` 等能力）；Codex CLI（通过 `references/codex-chips-adapter.md` 适配 `request_user_input` / `omx question` / local CLI fallback）。
+**适用平台**：
+1. **Claude Code agentic workflow**
+   - 依赖 `TaskCreate` / `AskUserQuestion` / `/loop` / `Skill` 等能力。
+   - chips 交互优先使用 `AskUserQuestion`;
+2. **Codex agentic workflow**
+   - 适用于 Codex CLI / Codex App / VS Code Codex Extension。
+   - chips 交互优先使用 Codex 原生 `request_user_input`。
+   - 使用前需确认 `default_mode_request_user_input` 已启用，并重启当前 Codex session。
+   - 若当前客户端或 session 未暴露 `request_user_input`，必须按 `references/codex-chips-adapter.md` 降级处理。
+
 **不适用平台**：纯 LLM API 调用 / 无 task tracker 的 IDE assistant / 完全脚本化 pipeline——协议核心机制无法兑现。
 
 **适用领域（cross-domain）**：
@@ -175,10 +184,20 @@ review 出的 issue 按风险（不按数量）分类：
 
 **强规则：所有 chips 调用必须先经过 chips adapter。**
 - Claude Code：优先使用 `AskUserQuestion`。
-- Codex CLI：先确认 `default_mode_request_user_input` 已启用并重启；再按 `references/codex-chips-adapter.md` 的优先级使用 `request_user_input` → `omx question` → `scripts/codex_chips.py` → emergency plain text + record。
+- Codex CLI / Codex App / VS Code Codex Extension：优先使用 Codex 原生 `request_user_input`,使用前必须执行检查：`codex features list`,其中应当显示`default_mode_request_user_input  under development  true`,如未启用则应执行`codex features enable default_mode_request_user_input`并重启；再按 `references/codex-chips-adapter.md` 的优先级使用 `request_user_input` → `omx question` → `scripts/codex_chips.py` → `emergency plain text + record`。
 - 如果当前 Codex Default mode 没有暴露 `request_user_input`，不得让 AI 静默代选；必须使用 fallback 并写入 `.chips/decisions.jsonl`。
 
 设计原则见 `references/chips-design.md`。
+
+# Codex chips 支持矩阵
+
+| 客户端 | 原生 chips backend | 前置条件 | fallback |
+|---|---|---|---|
+| Codex CLI | `request_user_input` | 启用 `default_mode_request_user_input` 并重启 session | `omx question` / `scripts/codex_chips.py` / 正文编号 |
+| Codex App | `request_user_input` | 启用 `default_mode_request_user_input` 并重启 session | 正文编号 + `.chips/decisions.jsonl` |
+| VS Code Codex Extension | `request_user_input` | 启用 `default_mode_request_user_input` 并重启 session | 正文编号 + `.chips/decisions.jsonl` |
+
+注意：`default_mode_request_user_input` 当前属于 under-development feature，可能随 Codex 版本变化。若原生 chips 不可用，必须降级，但不得在 P1-decision 上静默代选。
 
 ### 横切 2：TaskList 全程维护
 
@@ -219,7 +238,23 @@ review 出的 issue 按风险（不按数量）分类：
 
 ### 步骤 3 — chips 对齐协议参数
 
-先选择当前平台可用的 chips backend：Claude Code 用 `AskUserQuestion`；Codex 按 `references/codex-chips-adapter.md` 选择 backend。下面是逻辑 payload，不要求所有平台逐字使用同一 API。
+先选择当前平台可用的 chips backend：
+
+- Claude Code：优先使用 `AskUserQuestion`
+- Codex CLI / Codex App / VS Code Codex Extension：
+  1. 优先使用 Codex 原生 `request_user_input`
+  2. 若返回 `request_user_input is unavailable in Default mode`，检查：
+     ```bash
+     codex features list
+     ```
+  3. 若 `default_mode_request_user_input` 为 `false`，执行：
+     ```bash
+     codex features enable default_mode_request_user_input
+     ```
+  4. 重启 Codex session 后重新触发 chips
+  5. 若仍不可用，按 adapter fallback 处理
+
+  下面是逻辑 payload，不要求所有平台逐字使用同一 API，但必须保留结构化选项语义。
 
 ```python
 ask_chips(questions=[
