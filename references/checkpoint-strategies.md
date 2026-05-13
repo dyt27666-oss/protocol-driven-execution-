@@ -96,7 +96,7 @@ cp <doc>.md <doc>.v<N>.md.bak
 ## 启动协议时的 chips（已在 SKILL.md 步骤 3）
 
 ```python
-AskUserQuestion(questions=[{
+ask_chips(questions=[{
     "question": "checkpoint 形态？",
     "options": [
         {"label": "commit 直推 (Recommended)", "description": "单人 repo / unprotected branch"},

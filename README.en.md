@@ -1,8 +1,8 @@
 <div align="center">
 
-<h1>🧭 step-to-step-chips</h1>
+<h1>🧭 protocol-driven-execution</h1>
 
-<p><strong>Protocol-driven execution framework for long-horizon tasks · Let Claude self-drive the 7-stage loop, you only weigh in at architectural decisions</strong></p>
+<p><strong>Protocol-driven execution framework for long-horizon tasks · A 7-stage self-driving protocol for Claude and Codex</strong></p>
 
 <p>
   <a href="./README.md">中文</a>
@@ -13,11 +13,12 @@
 <p>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
   <img src="https://img.shields.io/badge/Claude_Code-skill-7c3aed.svg" alt="Claude Code Skill">
+  <img src="https://img.shields.io/badge/Codex_CLI-adapter-111827.svg" alt="Codex CLI adapter">
   <img src="https://img.shields.io/badge/platform-Linux_|_macOS-success.svg" alt="Linux/macOS">
   <img src="https://img.shields.io/badge/status-stable-green.svg" alt="Status: Stable">
 </p>
 
-<p>Downgrade "user babysits the whole process" to "user weighs in only when chips appear" · Stage 0 contract → 7-stage loop → Codex independent review</p>
+<p>Downgrade "user babysits the whole process" to "user weighs in only when chips appear" · Stage 0 contract → 7-stage loop → independent review → checkpoint</p>
 
 </div>
 
@@ -36,7 +37,7 @@ Long-horizon engineering tasks (5+ steps, multi-session, architectural decisions
 <table>
 <tr>
 <th align="left">😩 Before (no protocol)</th>
-<th align="left">✨ After (with step-to-step-chips)</th>
+<th align="left">✨ After (with protocol-driven-execution)</th>
 </tr>
 <tr>
 <td>
@@ -71,7 +72,7 @@ AI: Stage 0 contract chips align scope →
 ## ✨ Features
 
 - 🧭 **7-stage pipeline** — Stage 0 contract → 1 implement → 2 validation → 3 review → 4 negotiate → 5 fix → 6 checkpoint
-- 🎯 **chips feedback** — Architectural decisions via AskUserQuestion structured options, 2-3 sec to judge
+- 🎯 **chips feedback** — Architectural decisions via AskUserQuestion / Codex adapter structured options, 2-3 sec to judge
 - 🔬 **Mandatory independent reviewer** — External process / subagent / annotated self-review; no naked commits without review
 - 📊 **P1 three-tier classification** — P1-decision must ask / P1-defaultable proceed-with-rationale / P1-low-impact log
 - 🛡️ **Risk-based re-review** — Fixes touching interfaces/schemas/security trigger full re-review, not based on count
@@ -85,15 +86,15 @@ AI: Stage 0 contract chips align scope →
 ### Option 1: Clone to Claude Code skill path (recommended)
 
 ```bash
-git clone https://github.com/dyt27666-oss/step-to-step-chips.git \
-  ~/.claude/skills/step-to-step-chips
+git clone https://github.com/dyt27666-oss/protocol-driven-execution-.git \
+  ~/.claude/skills/protocol-driven-execution
 ```
 
 ### Option 2: Add as submodule
 
 ```bash
 cd <your-plugin-project>/skills/
-git submodule add https://github.com/dyt27666-oss/step-to-step-chips.git
+git submodule add https://github.com/dyt27666-oss/protocol-driven-execution-.git
 ```
 
 ### Option 3: Manual copy
@@ -145,6 +146,28 @@ You can pre-draft the contract; Claude will extract scope / non-goals / acceptan
 ```
 
 See [`references/stage-0-contract.md`](references/stage-0-contract.md).
+
+### Codex CLI: use the chips adapter
+
+Codex has an official feature flag for native UI chips. Enable it and restart Codex first:
+
+```bash
+codex features enable default_mode_request_user_input
+```
+
+If the fresh Codex session still does not expose native `request_user_input`, the protocol does not silently let the model decide. It selects the first available backend:
+
+```text
+request_user_input → omx question → scripts/codex_chips.py → plain-text record
+```
+
+You can simulate the local fallback directly:
+
+```bash
+python3 scripts/codex_chips.py ask --spec /tmp/chips.json
+```
+
+All fallback decisions are written to `.chips/decisions.jsonl`, so checkpoint summaries, ADRs, and knowledge-base pipelines can cite them later.
 
 ---
 
@@ -204,16 +227,20 @@ See [`references/stage-0-contract.md`](references/stage-0-contract.md).
 ## 📁 Project Structure
 
 ```
-step-to-step-chips/
+protocol-driven-execution/
 ├── SKILL.md                                # Skill entry (Claude Code loads here)
 ├── references/
 │   ├── stage-0-contract.md                 # Stage 0 template + example
 │   ├── six-phase-loop.md                   # 7-stage full flow diagram
 │   ├── review-mechanism.md                 # Reviewer forms + P1 three-tier
-│   ├── chips-design.md                     # AskUserQuestion design patterns
+│   ├── chips-design.md                     # chips design patterns
+│   ├── codex-chips-adapter.md              # Codex backend priority + fallback log
+│   ├── codex-native-ui-chips.md             # Native request_user_input setup/troubleshooting
 │   ├── decision-points-checklist.md        # 6-dimension judgment + edge cases
 │   ├── checkpoint-strategies.md            # 5 checkpoint forms
 │   └── loop-progress-template.md           # /loop optional mechanism (read-only)
+├── scripts/
+│   └── codex_chips.py                      # Codex CLI fallback chips recorder
 ├── README.md                               # 中文
 ├── README.en.md                            # English (you are here)
 └── LICENSE
@@ -226,7 +253,7 @@ step-to-step-chips/
 <details>
 <summary><b>How does this relate to GitFlow / PR review / TDD?</b></summary>
 
-step-to-step-chips is an **agent orchestration wrapper**; it **does not replace** existing team quality processes:
+protocol-driven-execution is an **agent orchestration wrapper**; it **does not replace** existing team quality processes:
 
 - PR review is one form of Stage 3 review (external human reviewer)
 - TDD applies to coding-task Stage 2 domain validation
@@ -241,7 +268,7 @@ The protocol is a workflow framework for AI agents; team processes are upper-lev
 
 Yes. Stage 6 checkpoint has 5 forms: commit / PR / patch / **doc savepoint** / **no VCS**. Stage 2 domain validation matrix covers coding / docs / research / design / schema / strategy.
 
-Not applicable: **raw LLM API calls** (no TaskList / AskUserQuestion tools), **fully scripted pipelines** (no interactive chips feedback).
+Not applicable: **raw LLM API calls** (no TaskList / structured chips tools), **fully scripted pipelines** (no interactive chips feedback).
 
 </details>
 
@@ -307,7 +334,7 @@ Core mechanisms depend on:
 - Structured decision prompts (AskUserQuestion or equivalent)
 - Skill loading mechanism
 
-Claude Code: fully supported. Codex CLI: partial (via `spawn_agent` + custom tools). **Raw LLM API**: no native task tracker; needs custom implementation.
+Claude Code: fully supported. Codex CLI supports protocol chips through `references/codex-chips-adapter.md`: use native `request_user_input` when available, otherwise fall back to `omx question`, `scripts/codex_chips.py`, or plain-text record. **Raw LLM API**: no native task tracker; needs custom implementation.
 
 </details>
 
@@ -318,8 +345,8 @@ Claude Code: fully supported. Codex CLI: partial (via `spawn_agent` + custom too
 | Item | Version |
 |------|---------|
 | Claude Code | 1.x (validated on G1-A v3.3 in production) |
-| Codex CLI | Partial (needs custom task tracker) |
-| Other agents | Requires task tracker + structured decision prompts |
+| Codex CLI | Adapter fallback supported; native UI chips depend on the `request_user_input` feature |
+| Other agents | Requires task tracker + structured prompts or equivalent adapter |
 | External deps | None |
 
 ---
@@ -340,8 +367,8 @@ Current version after two-round Codex review negotiation (all 4 P0 / 6 P1 / 3 P2
 
 Issues and PRs welcome!
 
-- 🐛 [Report a bug](https://github.com/dyt27666-oss/step-to-step-chips/issues/new)
-- 💡 [Suggest a feature](https://github.com/dyt27666-oss/step-to-step-chips/issues/new)
+- 🐛 [Report a bug](https://github.com/dyt27666-oss/protocol-driven-execution-/issues/new)
+- 💡 [Suggest a feature](https://github.com/dyt27666-oss/protocol-driven-execution-/issues/new)
 - 🌍 Translate to other languages
 
 ---

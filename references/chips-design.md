@@ -1,6 +1,17 @@
 # chips 设计模式
 
-> 何时用 chips（AskUserQuestion）+ 怎么设计选项 + 反例。
+> 何时用 chips（通过 AskUserQuestion / Codex chips adapter）+ 怎么设计选项 + 反例。
+
+
+## 平台适配入口
+
+协议中的 `chips` 是逻辑接口，不绑定单一 UI API：
+
+- Claude Code：优先使用 `AskUserQuestion`。
+- Codex CLI：必须按 `codex-chips-adapter.md` 选择 backend：`request_user_input` → `omx question` → `scripts/codex_chips.py` → emergency plain text + record。
+- fallback 不是免问用户；fallback 只改变呈现方式，仍必须产生结构化 answer 和 `.chips/decisions.jsonl` 日志。
+
+---
 
 ## 何时必须用 chips
 
@@ -33,7 +44,7 @@
 ## 模式 A：二选一架构决策
 
 ```python
-AskUserQuestion(questions=[{
+ask_chips(questions=[{
     "question": "状态机字段是平铺还是嵌套？",
     "header": "schema 决策",
     "options": [
@@ -55,7 +66,7 @@ AskUserQuestion(questions=[{
 ## 模式 B：批量 P1-decision
 
 ```python
-AskUserQuestion(questions=[
+ask_chips(questions=[
     {
         "question": "P1-decision-1: <schema 字段去留>?",
         "header": "P1-1",
@@ -84,7 +95,7 @@ AskUserQuestion(questions=[
 ## 模式 C：协议调整
 
 ```python
-AskUserQuestion(questions=[{
+ask_chips(questions=[{
     "question": "/loop 报告 3 轮同 task in_progress，调整？",
     "header": "协议调整",
     "options": [
@@ -100,7 +111,7 @@ AskUserQuestion(questions=[{
 ## 模式 D：preview 代码对比
 
 ```python
-AskUserQuestion(questions=[{
+ask_chips(questions=[{
     "question": "选择实现风格",
     "header": "实现",
     "options": [
